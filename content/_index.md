@@ -1,9 +1,19 @@
 ---
-title: Hello
+title: YONG'S MIND
 enableToc: false
 ---
 
->[!warning]
->这里是主页，我还没想好怎么装修。
+这里啥也没有。
+
+
+
+
+
+
+
+
+
+
+
 
 
