@@ -8,6 +8,9 @@ enableToc: false
 
 暂时没想好发布哪些笔记出来，过段时间再来看看吧。
 
+- Input
+	- [[notes/RabbitMQ 课程笔记|RabbitMQ 课程笔记]]
+
 ## 友链
 
 靓仔： https://lzangle.github.io/lzBlog/
