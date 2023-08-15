@@ -1,0 +1,204 @@
+<!doctype html><html lang=en><head><meta charset=utf-8><meta name=description content="[!tip] 鉴于 AMPQ 实现的多样性，笔记会偏向于描述概念与原理，功能的实现可以参考官方文档或者项目代码。
+ RabbitMQ 是用于程序之间传递消息的一种软件（专业点来说就是一种中间件）。
+工作原理：
+flowchart LR Producer -- Connection1 subgraph Connection1 direction LR Channel1 Channel2 end Connection1 -- RabbitMQ subgraph RabbitMQ direction LR Exchange1 -- Queue1 Exchange1 -- Queue2 Exchange2 -- Queue2 Exchange2 -- Queue3 end subgraph Connection2 direction LR Channel3 Channel4 end Connection2 -- RabbitMQ Consumer -- Connection2  安装与部署  ubuntu 环境下使用 apt-get 命令安装 erlang 和 rabbitmq-server 程序的运行依赖 Erlang，所以需要同时安装 Erlang rabbitmq-server 是服务 开启 rabbitmq_management 插件启用 web 管理页面  默认只有一个 guest 用户，且只能本地登陆   rabbitmqctl 可以进行访问管理  基本概念  Producer：生产消息 Consumer：消费消息 [[#交换机 |Exchange]]：分发消息 Queue：存放消息  工作队列 工作队列指一个 Queue 的所有消费者组成的队列，消费者们会竞争 Queue 中的消息。"><meta property="og:title" content><meta property="og:description" content="[!tip] 鉴于 AMPQ 实现的多样性，笔记会偏向于描述概念与原理，功能的实现可以参考官方文档或者项目代码。
+ RabbitMQ 是用于程序之间传递消息的一种软件（专业点来说就是一种中间件）。
+工作原理：
+flowchart LR Producer -- Connection1 subgraph Connection1 direction LR Channel1 Channel2 end Connection1 -- RabbitMQ subgraph RabbitMQ direction LR Exchange1 -- Queue1 Exchange1 -- Queue2 Exchange2 -- Queue2 Exchange2 -- Queue3 end subgraph Connection2 direction LR Channel3 Channel4 end Connection2 -- RabbitMQ Consumer -- Connection2  安装与部署  ubuntu 环境下使用 apt-get 命令安装 erlang 和 rabbitmq-server 程序的运行依赖 Erlang，所以需要同时安装 Erlang rabbitmq-server 是服务 开启 rabbitmq_management 插件启用 web 管理页面  默认只有一个 guest 用户，且只能本地登陆   rabbitmqctl 可以进行访问管理  基本概念  Producer：生产消息 Consumer：消费消息 [[#交换机 |Exchange]]：分发消息 Queue：存放消息  工作队列 工作队列指一个 Queue 的所有消费者组成的队列，消费者们会竞争 Queue 中的消息。"><meta property="og:type" content="website"><meta property="og:image" content="https://yong011021.github.io/quartz/icon.png"><meta property="og:url" content="https://yong011021.github.io/quartz/notes/RabbitMQ-%E8%AF%BE%E7%A8%8B%E7%AC%94%E8%AE%B0/"><meta property="og:width" content="200"><meta property="og:height" content="200"><meta name=twitter:card content="summary"><meta name=twitter:title content><meta name=twitter:description content="[!tip] 鉴于 AMPQ 实现的多样性，笔记会偏向于描述概念与原理，功能的实现可以参考官方文档或者项目代码。
+ RabbitMQ 是用于程序之间传递消息的一种软件（专业点来说就是一种中间件）。
+工作原理：
+flowchart LR Producer -- Connection1 subgraph Connection1 direction LR Channel1 Channel2 end Connection1 -- RabbitMQ subgraph RabbitMQ direction LR Exchange1 -- Queue1 Exchange1 -- Queue2 Exchange2 -- Queue2 Exchange2 -- Queue3 end subgraph Connection2 direction LR Channel3 Channel4 end Connection2 -- RabbitMQ Consumer -- Connection2  安装与部署  ubuntu 环境下使用 apt-get 命令安装 erlang 和 rabbitmq-server 程序的运行依赖 Erlang，所以需要同时安装 Erlang rabbitmq-server 是服务 开启 rabbitmq_management 插件启用 web 管理页面  默认只有一个 guest 用户，且只能本地登陆   rabbitmqctl 可以进行访问管理  基本概念  Producer：生产消息 Consumer：消费消息 [[#交换机 |Exchange]]：分发消息 Queue：存放消息  工作队列 工作队列指一个 Queue 的所有消费者组成的队列，消费者们会竞争 Queue 中的消息。"><meta name=twitter:image content="https://yong011021.github.io/quartz/icon.png"><title>🪴 YONG'S MIND</title><meta name=viewport content="width=device-width,initial-scale=1"><link rel="shortcut icon" type=image/png href=https://yong011021.github.io/quartz//icon.png><link href=https://yong011021.github.io/quartz/styles.0d112fcad86d2a2099d4a03f1bdfeb3b.min.css rel=stylesheet><link href=https://yong011021.github.io/quartz/styles/_light_syntax.86a48a52faebeaaf42158b72922b1c90.min.css rel=stylesheet id=theme-link><script src=https://yong011021.github.io/quartz/js/darkmode.67811bd161f08dc5699da59d2d811d3b.min.js></script>
+<script src=https://yong011021.github.io/quartz/js/util.00639692264b21bc3ee219733d38a8be.min.js></script>
+<link rel=preload href=https://cdn.jsdelivr.net/npm/katex@0.15.1/dist/katex.min.css as=style onload='this.onload=null,this.rel="stylesheet"' integrity=sha384-R4558gYOUz8mP9YWpZJjofhk+zx0AS11p36HnD2ZKj/6JR5z27gSSULCNHIRReVs crossorigin=anonymous><script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.1/dist/katex.min.js integrity=sha384-z1fJDqw8ZApjGO3/unPWUPsIymfsJmyrDVWC8Tv/a1HeOtGmkwNd/7xUS0Xcnvsx crossorigin=anonymous></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.1/dist/contrib/auto-render.min.js integrity=sha384-+XBljXPPiv+OzfbB3cVmLHf4hdUFHlWNZN5spNQ7rmHTXpd7WvJum6fIACpNNfIR crossorigin=anonymous></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.16.2/dist/contrib/copy-tex.min.js integrity=sha384-ww/583aHhxWkz5DEVn6OKtNiIaLi2iBRNZXfJRiY1Ai7tnJ9UXpEsyvOITVpTl4A crossorigin=anonymous></script>
+<script type=module>
+      import mermaid from 'https://unpkg.com/mermaid@9/dist/mermaid.esm.min.mjs';
+      mermaid.initialize({ startOnLoad: true });
+    </script><script src=https://cdn.jsdelivr.net/npm/@floating-ui/core@1.2.1></script>
+<script src=https://cdn.jsdelivr.net/npm/@floating-ui/dom@1.2.1></script>
+<script defer src=https://yong011021.github.io/quartz/js/popover.aa9bc99c7c38d3ae9538f218f1416adb.min.js></script>
+<script defer src=https://yong011021.github.io/quartz/js/code-title.ce4a43f09239a9efb48fee342e8ef2df.min.js></script>
+<script defer src=https://yong011021.github.io/quartz/js/clipboard.2913da76d3cb21c5deaa4bae7da38c9f.min.js></script>
+<script defer src=https://yong011021.github.io/quartz/js/callouts.7723cac461d613d118ee8bb8216b9838.min.js></script>
+<script>const SEARCH_ENABLED=!1,LATEX_ENABLED=!0,PRODUCTION=!0,BASE_URL="https://yong011021.github.io/quartz/",fetchData=Promise.all([fetch("https://yong011021.github.io/quartz/indices/linkIndex.1b3a2e4d8b8c5362852b2ca1676cf032.min.json").then(e=>e.json()).then(e=>({index:e.index,links:e.links})),fetch("https://yong011021.github.io/quartz/indices/contentIndex.0e50a44ae1dfb550501ecf3a19786a9f.min.json").then(e=>e.json())]).then(([{index:e,links:t},n])=>({index:e,links:t,content:n})),render=()=>{const e=new URL(BASE_URL),t=e.pathname,n=window.location.pathname,s=t==n;addCopyButtons(),addTitleToCodeBlocks(),addCollapsibleCallouts(),initPopover("https://yong011021.github.io/quartz",!0);const o=document.getElementById("footer");if(o){const e=document.getElementById("graph-container");if(!e)return requestAnimationFrame(render);e.textContent="";const t=s&&!1;drawGraph("https://yong011021.github.io/quartz",t,[{"/moc":"#4388cc"}],t?{centerForce:1,depth:-1,enableDrag:!0,enableLegend:!1,enableZoom:!0,fontSize:.5,linkDistance:1,opacityScale:3,repelForce:1,scale:1.4}:{centerForce:1,depth:1,enableDrag:!0,enableLegend:!1,enableZoom:!0,fontSize:.6,linkDistance:1,opacityScale:3,repelForce:2,scale:1.2})}var i=document.getElementsByClassName("mermaid");i.length>0&&import("https://unpkg.com/mermaid@9/dist/mermaid.esm.min.mjs").then(e=>{e.default.init()});function a(n){const e=n.target,t=e.className.split(" "),s=t.includes("broken"),o=t.includes("internal-link");plausible("Link Click",{props:{href:e.href,broken:s,internal:o,graph:!1}})}const r=document.querySelectorAll("a");for(link of r)link.className.includes("root-title")&&link.addEventListener("click",a,{once:!0})},init=(e=document)=>{addCopyButtons(),addTitleToCodeBlocks(),renderMathInElement(e.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}],macros:{'’':"'"},throwOnError:!1})}</script><script type=module>
+    import { attachSPARouting } from "https:\/\/yong011021.github.io\/quartz\/js\/router.d6fe6bd821db9ea97f9aeefae814d8e7.min.js"
+    attachSPARouting(init, render)
+  </script><script defer data-domain=yong011021.github.io/quartz src=https://plausible.io/js/script.js></script>
+<script>window.plausible=window.plausible||function(){(window.plausible.q=window.plausible.q||[]).push(arguments)}</script></head><body><div id=search-container><div id=search-space><input autocomplete=off id=search-bar name=search type=text aria-label=Search placeholder="Search for something..."><div id=results-container></div></div></div><script src=https://cdn.jsdelivr.net/npm/flexsearch@0.7.21/dist/flexsearch.bundle.js integrity="sha256-i3A0NZGkhsKjVMzFxv3ksk0DZh3aXqu0l49Bbh0MdjE=" crossorigin=anonymous defer></script>
+<script defer src=https://yong011021.github.io/quartz/js/full-text-search.e6e2e0c213187ca0c703d6e2c7a77fcd.min.js></script><div class=singlePage><header><h1 id=page-title><a class=root-title href=https://yong011021.github.io/quartz/>🪴 YONG'S MIND</a></h1><div class=spacer></div><div id=search-icon><p>Search</p><svg tabindex="0" aria-labelledby="title desc" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 19.9 19.7"><title id="title">Search Icon</title><desc id="desc">Icon to open search</desc><g class="search-path" fill="none"><path stroke-linecap="square" d="M18.5 18.3l-5.4-5.4"/><circle cx="8" cy="8" r="7"/></g></svg></div><div class=darkmode><input class=toggle id=darkmode-toggle type=checkbox tabindex=-1>
+<label id=toggle-label-light for=darkmode-toggle tabindex=-1><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" id="dayIcon" viewBox="0 0 35 35" style="enable-background:new 0 0 35 35"><title>Light Mode</title><path d="M6 17.5C6 16.672 5.328 16 4.5 16h-3C.672 16 0 16.672.0 17.5S.672 19 1.5 19h3C5.328 19 6 18.328 6 17.5zM7.5 26c-.414.0-.789.168-1.061.439l-2 2C4.168 28.711 4 29.086 4 29.5 4 30.328 4.671 31 5.5 31c.414.0.789-.168 1.06-.44l2-2C8.832 28.289 9 27.914 9 27.5 9 26.672 8.329 26 7.5 26zm10-20C18.329 6 19 5.328 19 4.5v-3C19 .672 18.329.0 17.5.0S16 .672 16 1.5v3C16 5.328 16.671 6 17.5 6zm10 3c.414.0.789-.168 1.06-.439l2-2C30.832 6.289 31 5.914 31 5.5 31 4.672 30.329 4 29.5 4c-.414.0-.789.168-1.061.44l-2 2C26.168 6.711 26 7.086 26 7.5 26 8.328 26.671 9 27.5 9zM6.439 8.561C6.711 8.832 7.086 9 7.5 9 8.328 9 9 8.328 9 7.5c0-.414-.168-.789-.439-1.061l-2-2C6.289 4.168 5.914 4 5.5 4 4.672 4 4 4.672 4 5.5c0 .414.168.789.439 1.06l2 2.001zM33.5 16h-3c-.828.0-1.5.672-1.5 1.5s.672 1.5 1.5 1.5h3c.828.0 1.5-.672 1.5-1.5S34.328 16 33.5 16zM28.561 26.439C28.289 26.168 27.914 26 27.5 26c-.828.0-1.5.672-1.5 1.5.0.414.168.789.439 1.06l2 2C28.711 30.832 29.086 31 29.5 31c.828.0 1.5-.672 1.5-1.5.0-.414-.168-.789-.439-1.061l-2-2zM17.5 29c-.829.0-1.5.672-1.5 1.5v3c0 .828.671 1.5 1.5 1.5s1.5-.672 1.5-1.5v-3C19 29.672 18.329 29 17.5 29zm0-22C11.71 7 7 11.71 7 17.5S11.71 28 17.5 28 28 23.29 28 17.5 23.29 7 17.5 7zm0 18c-4.136.0-7.5-3.364-7.5-7.5s3.364-7.5 7.5-7.5 7.5 3.364 7.5 7.5S21.636 25 17.5 25z"/></svg></label><label id=toggle-label-dark for=darkmode-toggle tabindex=-1><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" id="nightIcon" viewBox="0 0 100 100" style="enable-background='new 0 0 100 100'"><title>Dark Mode</title><path d="M96.76 66.458c-.853-.852-2.15-1.064-3.23-.534-6.063 2.991-12.858 4.571-19.655 4.571C62.022 70.495 50.88 65.88 42.5 57.5 29.043 44.043 25.658 23.536 34.076 6.47c.532-1.08.318-2.379-.534-3.23-.851-.852-2.15-1.064-3.23-.534-4.918 2.427-9.375 5.619-13.246 9.491-9.447 9.447-14.65 22.008-14.65 35.369.0 13.36 5.203 25.921 14.65 35.368s22.008 14.65 35.368 14.65c13.361.0 25.921-5.203 35.369-14.65 3.872-3.871 7.064-8.328 9.491-13.246C97.826 68.608 97.611 67.309 96.76 66.458z"/></svg></label></div></header><article><p class=meta>Last updated
+Unknown
+<a href=https://github.com/jackyzha0/quartz/tree/hugo/content/notes/RabbitMQ%20%e8%af%be%e7%a8%8b%e7%ac%94%e8%ae%b0.md rel=noopener>Edit Source</a></p><ul class=tags><li><a href=https://yong011021.github.io/quartz/tags/area/back-end/>Area back end</a></li></ul><aside class=mainTOC><details><summary>Table of Contents</summary><nav id=TableOfContents><ol><li><a href=#安装与部署>安装与部署</a></li><li><a href=#基本概念>基本概念</a></li><li><a href=#工作队列>工作队列</a></li><li><a href=#消息应答>消息应答</a></li><li><a href=#持久化>持久化</a></li><li><a href=#不公平分发>不公平分发</a></li><li><a href=#发布确认>发布确认</a></li><li><a href=#交换机>交换机</a></li><li><a href=#备份交换机>备份交换机</a></li><li><a href=#死信队列>死信队列</a></li><li><a href=#延迟队列>延迟队列</a></li><li><a href=#惰性队列>惰性队列</a></li><li><a href=#优先级队列>优先级队列</a></li><li><a href=#整合-spring-boot>整合 Spring Boot🍃</a></li><li><a href=#搭建集群>搭建集群</a></li><li><a href=#队列镜像>队列镜像</a></li></ol></nav></details></aside><blockquote class=tip-callout><p>鉴于 AMPQ 实现的多样性，笔记会偏向于描述概念与原理，功能的实现可以参考官方文档或者项目代码。</p></blockquote><p>RabbitMQ 是用于程序之间传递消息的一种软件（专业点来说就是一种中间件）。</p><p>工作原理：</p><div class=mermaid>flowchart LR
+Producer --> Connection1
+subgraph Connection1
+direction LR
+Channel1
+Channel2
+end
+Connection1 --> RabbitMQ
+subgraph RabbitMQ
+direction LR
+Exchange1 --> Queue1
+Exchange1 --> Queue2
+Exchange2 --> Queue2
+Exchange2 --> Queue3
+end
+subgraph Connection2
+direction LR
+Channel3
+Channel4
+end
+Connection2 --> RabbitMQ
+Consumer --> Connection2</div><a href=#安装与部署><h2 id=安装与部署><span class=hanchor arialabel=Anchor># </span>安装与部署</h2></a><ul><li>ubuntu 环境下使用 apt-get 命令安装 erlang 和 rabbitmq-server</li><li>程序的运行依赖 Erlang，所以需要同时安装 Erlang</li><li>rabbitmq-server 是服务</li><li>开启 rabbitmq_management 插件启用 web 管理页面<ul><li>默认只有一个 guest 用户，且只能本地登陆</li></ul></li><li>rabbitmqctl 可以进行访问管理</li></ul><a href=#基本概念><h2 id=基本概念><span class=hanchor arialabel=Anchor># </span>基本概念</h2></a><ul><li>Producer：生产消息</li><li>Consumer：消费消息</li><li><a href=/quartz#%e4%ba%a4%e6%8d%a2%e6%9c%ba rel=noopener class=internal-link data-src=/quartz>Exchange</a>：分发消息</li><li>Queue：存放消息</li></ul><a href=#工作队列><h2 id=工作队列><span class=hanchor arialabel=Anchor># </span>工作队列</h2></a><p>工作队列指一个 Queue 的所有消费者组成的队列，消费者们会竞争 Queue 中的消息。</p><a href=#消息应答><h2 id=消息应答><span class=hanchor arialabel=Anchor># </span>消息应答</h2></a><p>消费者通知生产者他收到了消息，生产者以此决定是否发送新消息，这就是消息应答。如果消费者在消息的 TTL 内没有应答，消息会 requeue（重新入队）。除了应答外消费者也可以拒绝消息。</p><a href=#持久化><h2 id=持久化><span class=hanchor arialabel=Anchor># </span>持久化</h2></a><p>RabbitMQ 重启后，队列和消息都会消失不见，除了持久化的。</p><ul><li>队列持久化：队列只在创建时允许设置持久化</li><li>消息持久化：发布消息时设置持久化</li></ul><a href=#不公平分发><h2 id=不公平分发><span class=hanchor arialabel=Anchor># </span>不公平分发</h2></a><p>一个工作队列中消费者轮流消费消息是公平分发，按能力消费是不公平分发。</p><p>那么如何开启不公平分发呢？设置消费者的处理能力就好了，因为消费者与 Channel 对应，所以这个设置在 Channel 中，也就是 <code>Channel.basicQos</code> 的 prefetch 参数。prefetch 是整数值，单位是消息的条数，表示 Channel 最大能够容纳的待应答的消息的数量。</p><a href=#发布确认><h2 id=发布确认><span class=hanchor arialabel=Anchor># </span>发布确认</h2></a><p>生产者确认消费者已经收到了消息，该功能需要手动开启。该功能开启后，生产者在收到消费者的应答后才会发送下一条消息。关于这一点，你需要知道：</p><ul><li>生产者调用 <code>Channel.confirmSelect()</code> 开启 Channel 的发布确认</li><li>生产者调用 <code>Channel.waitForConfirms()</code> 等待回应</li></ul><p>发布确认的实现可以分为：</p><ul><li>单个确认消息：发送一条消息确认一次，速度最慢🐢</li><li>批量确认消息：发送多条消息后批量确认一次，速度中等，但是出错时无法定位消息</li><li>异步确认消息：开启多线程进行确认，使用 <code>Channel.addConfirmListener</code> 增加一个监听器即可，速度嘎嘎快⚡</li></ul><a href=#交换机><h2 id=交换机><span class=hanchor arialabel=Anchor># </span>交换机</h2></a><p>交换机负责收取生产者发布的消息，然后分发给交换机绑定的队列。交换机的类型有多种，每种类型有各自的分发规则。</p><p>交换机的类型：</p><ul><li>Direct：消息只分发给单个队列</li><li>Topic：消息分发给与匹配的队列</li><li>Fanout🔊：消息分发给所有队列</li></ul><blockquote class=tip-callout><p>关于 Topic 的更多说明
+交换机中 queue 的 routing key 可以看作一种 pattern，Producer 指定的 routing key 会与交换机中的 routing key 进行匹配，所有匹配的 queue 都能收到消息。</p></blockquote><a href=#备份交换机><h2 id=备份交换机><span class=hanchor arialabel=Anchor># </span>备份交换机</h2></a><p>可以为交换机配置备份交换机，当交换机中的队列无法接收消息时，由备份交换机代代为接收并进行广播，注意备份交换机的类型需要是 Fanout。</p><a href=#死信队列><h2 id=死信队列><span class=hanchor arialabel=Anchor># </span>死信队列</h2></a><p>Dead Letter 是因为 TTL 过期、消息被拒收、队列已满而产生的消息。</p><p>这些消息会转发的队列指定的交换机中的 dead letter routing key 中等待下一步处理。这种交换机称为 dead letter exchange。</p><div class=mermaid>flowchart LR
+subgraph RabbitMQ
+direction LR
+subgraph Exchanges
+Exchange
+dle[DLE]
+end
+subgraph Queues
+Queue
+dlq[DLQ]
+end
+Exchange --->|direct| Queue
+dle --->|direct| dlq
+Queue -.-|transfer| dlq
+end</div><blockquote class=warning-callout><p>The type of Dead Letter Exchange and the exchange from which dead letters come must be direct.</p></blockquote><p>Dead letter exchange 与 dead letter routing key 在声明队列时作为额外参数配置：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=n>HashMap</span><span class=o>&lt;</span><span class=n>String</span><span class=o>,</span> <span class=n>Object</span><span class=o>&gt;</span> <span class=n>arguments</span> <span class=o>=</span> <span class=k>new</span> <span class=n>HashMap</span><span class=o>&lt;&gt;();</span>  
+</span></span><span class=line><span class=cl><span class=n>arguments</span><span class=o>.</span><span class=na>put</span><span class=o>(</span><span class=s>&#34;x-dead-letter-exchange&#34;</span><span class=o>,</span> <span class=s>&#34;dead_letter_exchange&#34;</span><span class=o>);</span>  
+</span></span><span class=line><span class=cl><span class=n>arguments</span><span class=o>.</span><span class=na>put</span><span class=o>(</span><span class=s>&#34;x-dead-letter-routing-key&#34;</span><span class=o>,</span> <span class=s>&#34;dead_letter_routing_key&#34;</span><span class=o>);</span>  
+</span></span><span class=line><span class=cl><span class=n>channel</span><span class=o>.</span><span class=na>queueDeclare</span><span class=o>(</span><span class=n>QUEUE_NAME</span><span class=o>,</span> <span class=kc>false</span><span class=o>,</span> <span class=kc>false</span><span class=o>,</span> <span class=kc>false</span><span class=o>,</span> <span class=n>arguments</span><span class=o>);</span>
+</span></span></code></pre></td></tr></table></div></div><a href=#延迟队列><h2 id=延迟队列><span class=hanchor arialabel=Anchor># </span>延迟队列</h2></a><ul><li>延迟队列的两种实现方式——插件与死信队列的与别在于，前者是异步的，而后者是同步的</li><li>插件是指
+<a href=https://github.com/rabbitmq/rabbitmq-delayed-message-exchange rel=noopener>rabbitmq-delayed-message-exchange</a></li><li>关于如何安装插件可以阅读
+<a href=https://www.rabbitmq.com/installing-plugins.html rel=noopener>Installing Additional Plugins — RabbitMQ</a></li><li>该插件提供了一种新的交换机类型： x-delayed-message，进入这种交换机的消息会暂时停留在交换机中，直到预设的 delayed time 过期，再分发给队列</li><li>x-delayed-message 顶多能算一种标签，他还是需要通过可选参数设置交换机类型</li></ul><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt>1
+</span><span class=lnt>2
+</span><span class=lnt>3
+</span><span class=lnt>4
+</span><span class=lnt>5
+</span><span class=lnt>6
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-java data-lang=java><span class=line><span class=cl><span class=nd>@Bean</span><span class=o>(</span><span class=n>DELAYED_EXCHANGE</span><span class=o>)</span>  
+</span></span><span class=line><span class=cl><span class=kd>public</span> <span class=n>CustomExchange</span> <span class=nf>delayedExchange</span><span class=o>()</span> <span class=o>{</span>  
+</span></span><span class=line><span class=cl>	<span class=n>Map</span><span class=o>&lt;</span><span class=n>String</span><span class=o>,</span> <span class=n>Object</span><span class=o>&gt;</span> <span class=n>arguments</span> <span class=o>=</span> <span class=k>new</span> <span class=n>HashMap</span><span class=o>&lt;&gt;();</span>  
+</span></span><span class=line><span class=cl>	<span class=n>arguments</span><span class=o>.</span><span class=na>put</span><span class=o>(</span><span class=s>&#34;x-delayed-type&#34;</span><span class=o>,</span> <span class=s>&#34;direct&#34;</span><span class=o>);</span>  
+</span></span><span class=line><span class=cl>	<span class=k>return</span> <span class=k>new</span> <span class=n>CustomExchange</span><span class=o>(</span><span class=s>&#34;delayed_exchange&#34;</span><span class=o>,</span> <span class=s>&#34;x-delayed-message&#34;</span><span class=o>,</span> <span class=kc>false</span><span class=o>,</span> <span class=kc>false</span><span class=o>,</span> <span class=n>arguments</span><span class=o>);</span>  
+</span></span><span class=line><span class=cl><span class=o>}</span>
+</span></span></code></pre></td></tr></table></div></div><a href=#惰性队列><h2 id=惰性队列><span class=hanchor arialabel=Anchor># </span>惰性队列</h2></a><p>惰性队列的消息保存在硬盘中，消费时再取出。这样能够显著降低内存空间的占用，同时也会降低消费速度。</p><p>实现它只需要将队列的 <code>x-queue-mode</code> 配置为 <code>lazy</code>。</p><a href=#优先级队列><h2 id=优先级队列><span class=hanchor arialabel=Anchor># </span>优先级队列</h2></a><p>优先级队列中的消息可以配置优先级，然后按优先级消费，高优先级的消息先被消费。</p><p>关于实现方面你需要注意以下几点：</p><ul><li>通过配置 <code>x-max-priority</code> 使队列称为优先级队列</li><li>x-max-priority 的数据类型是 unsigned byte，推荐取值范围 1-5</li><li>消息的优先级作为 other properties 配置，0 为默认值，最大值不会超过 x-max-priority</li></ul><p>更多信息参考：
+<a href=https://rabbitmq.com/priority.html rel=noopener>Priority Queue Support — RabbitMQ</a></p><a href=#整合-spring-boot><h2 id=整合-spring-boot><span class=hanchor arialabel=Anchor># </span>整合 Spring Boot🍃</h2></a><ul><li>spring-boot-starter-amqp</li><li>使用配置类配置交换机与队列</li><li><a href=https://docs.spring.io/spring-amqp/docs/current/reference/html/#cf-pub-conf-ret rel=noopener>Publisher Confirms and Returns</a></li></ul><a href=#搭建集群><h2 id=搭建集群><span class=hanchor arialabel=Anchor># </span>搭建集群</h2></a><p>这里没有做过多的研究，直接附上课程中的操作过程：</p><div class=highlight><div class=chroma><table class=lntable><tr><td class=lntd><pre tabindex=0 class=chroma><code><span class=lnt> 1
+</span><span class=lnt> 2
+</span><span class=lnt> 3
+</span><span class=lnt> 4
+</span><span class=lnt> 5
+</span><span class=lnt> 6
+</span><span class=lnt> 7
+</span><span class=lnt> 8
+</span><span class=lnt> 9
+</span><span class=lnt>10
+</span><span class=lnt>11
+</span><span class=lnt>12
+</span><span class=lnt>13
+</span><span class=lnt>14
+</span><span class=lnt>15
+</span><span class=lnt>16
+</span><span class=lnt>17
+</span><span class=lnt>18
+</span><span class=lnt>19
+</span><span class=lnt>20
+</span><span class=lnt>21
+</span><span class=lnt>22
+</span><span class=lnt>23
+</span><span class=lnt>24
+</span><span class=lnt>25
+</span><span class=lnt>26
+</span><span class=lnt>27
+</span><span class=lnt>28
+</span><span class=lnt>29
+</span><span class=lnt>30
+</span><span class=lnt>31
+</span><span class=lnt>32
+</span><span class=lnt>33
+</span><span class=lnt>34
+</span><span class=lnt>35
+</span><span class=lnt>36
+</span><span class=lnt>37
+</span><span class=lnt>38
+</span><span class=lnt>39
+</span><span class=lnt>40
+</span><span class=lnt>41
+</span><span class=lnt>42
+</span><span class=lnt>43
+</span><span class=lnt>44
+</span><span class=lnt>45
+</span><span class=lnt>46
+</span><span class=lnt>47
+</span><span class=lnt>48
+</span><span class=lnt>49
+</span><span class=lnt>50
+</span><span class=lnt>51
+</span><span class=lnt>52
+</span><span class=lnt>53
+</span><span class=lnt>54
+</span><span class=lnt>55
+</span><span class=lnt>56
+</span></code></pre></td><td class=lntd><pre tabindex=0 class=chroma><code class=language-shell data-lang=shell><span class=line><span class=cl>1.修改 <span class=m>3</span> 台机器的主机名称
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>vim /etc/hostname
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>2.配置各个节点的 hosts 文件，让各个节点都能互相识别对方
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>vim /etc/hosts
+</span></span><span class=line><span class=cl>10.211.55.74 node1
+</span></span><span class=line><span class=cl>10.211.55.75 node2
+</span></span><span class=line><span class=cl>10.211.55.76 node3
+</span></span><span class=line><span class=cl> 
+</span></span><span class=line><span class=cl>3.以确保各个节点的 cookie 文件使用的是同一个值在 node1 上执行远程操作命令
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>scp /var/lib/rabbitmq/.erlang.cookie root@node2:/var/lib/rabbitmq/.erlang.cookie
+</span></span><span class=line><span class=cl>scp /var/lib/rabbitmq/.erlang.cookie root@node3:/var/lib/rabbitmq/.erlang.cookie
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>4.启动 RabbitMQ 服务,顺带启动 Erlang 虚拟机和 RbbitMQ 应用服务<span class=o>(</span>在三台节点上分别执行以
+</span></span><span class=line><span class=cl>下命令<span class=o>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>rabbitmq-server -detached
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>5.在节点 <span class=m>2</span> 执行
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>rabbitmqctl stop_app
+</span></span><span class=line><span class=cl><span class=o>(</span>rabbitmqctl stop 会将 Erlang 虚拟机关闭，rabbitmqctl stop_app 只关闭 RabbitMQ 服务<span class=o>)</span>
+</span></span><span class=line><span class=cl>rabbitmqctl reset
+</span></span><span class=line><span class=cl>rabbitmqctl join_cluster rabbit@node1
+</span></span><span class=line><span class=cl>rabbitmqctl start_app<span class=o>(</span>只启动应用服务<span class=o>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>6.在节点 <span class=m>3</span> 执行
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>rabbitmqctl stop_app
+</span></span><span class=line><span class=cl>rabbitmqctl reset
+</span></span><span class=line><span class=cl>rabbitmqctl join_cluster rabbit@node2
+</span></span><span class=line><span class=cl>rabbitmqctl start_app
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>7.集群状态
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>rabbitmqctl cluster_status
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>8.需要重新设置用户
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>创建账号
+</span></span><span class=line><span class=cl>rabbitmqctl add_user admin <span class=m>123</span>
+</span></span><span class=line><span class=cl>设置用户角色
+</span></span><span class=line><span class=cl>rabbitmqctl set_user_tags admin administrator
+</span></span><span class=line><span class=cl>设置用户权限
+</span></span><span class=line><span class=cl>rabbitmqctl set_permissions -p <span class=s2>&#34;/&#34;</span> admin <span class=s2>&#34;.*&#34;</span> <span class=s2>&#34;.*&#34;</span> <span class=s2>&#34;.*&#34;</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>9.解除集群节点<span class=o>(</span>node2 和 node3 机器分别执行<span class=o>)</span>
+</span></span><span class=line><span class=cl>
+</span></span><span class=line><span class=cl>rabbitmqctl stop_app
+</span></span><span class=line><span class=cl>rabbitmqctl reset
+</span></span><span class=line><span class=cl>rabbitmqctl start_app
+</span></span><span class=line><span class=cl>rabbitmqctl cluster_status
+</span></span><span class=line><span class=cl>rabbitmqctl forget_cluster_node rabbit@node2<span class=o>(</span>node1 机器上执行<span class=o>)</span>
+</span></span></code></pre></td></tr></table></div></div><a href=#队列镜像><h2 id=队列镜像><span class=hanchor arialabel=Anchor># </span>队列镜像</h2></a><p>这个功能已经在最新版本中移除，并被
+<a href=https://www.rabbitmq.com/quorum-queues.html rel=noopener>Quorum Queues — RabbitMQ</a> 取代。</p></article><hr><div class=page-end id=footer><div class=backlinks-container><h3>Backlinks</h3><ul class=backlinks><li><a href=/quartz// data-ctx="RabbitMQ 课程笔记" data-src=/ class=internal-link>YONG'S MIND</a></li></ul></div><div><script src=https://cdn.jsdelivr.net/npm/d3@6.7.0/dist/d3.min.js integrity="sha256-+7jaYCp29O1JusNWHaYtgUn6EhuP0VaFuswhNV06MyI=" crossorigin=anonymous></script><h3>Interactive Graph</h3><div id=graph-container></div><style>:root{--g-node:var(--secondary);--g-node-active:var(--primary);--g-node-inactive:var(--visited);--g-link:var(--outlinegray);--g-link-active:#5a7282}</style><script src=https://yong011021.github.io/quartz/js/graph.6579af7b10c818dbd2ca038702db0224.js></script></div></div><div id=contact_buttons><footer><p>Made by YONG using <a href=https://github.com/jackyzha0/quartz>Quartz</a>, © 2023</p><ul><li><a href=https://yong011021.github.io/quartz/>Home</a></li><li><a href=https://github.com/Yong011021>GitHub</a></li></ul></footer></div></div></body></html>
